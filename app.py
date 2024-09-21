@@ -16,8 +16,8 @@ Session(app)
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
 # Initialize session data for holidays, vacations, and user inputs
-@app.before_first_request  # Switched to before_first_request to initialize session early
-def initialize_session():
+@app.before_request
+def before_request():
     if 'holidays' not in session:
         session['holidays'] = []
     if 'vacations' not in session:

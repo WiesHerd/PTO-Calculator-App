@@ -10,7 +10,7 @@ app.secret_key = 'your_secret_key_here'
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
-app.config['SESSION_COOKIE_NAME'] = 'my_session'
+app.config['SESSION_COOKIE_NAME'] = 'my_session'  # Add this line
 Session(app)
 
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)

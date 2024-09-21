@@ -10,7 +10,7 @@ app.secret_key = 'your_secret_key_here'
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
-app.config['SESSION_COOKIE_NAME'] = 'my_session'  # Added this line
+app.config['SESSION_COOKIE_NAME'] = 'my_session'
 Session(app)
 
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
@@ -30,8 +30,19 @@ def before_request():
             'current_pto': '',
             'current_pp_start': '',
             'future_date': '',
-            'include_holidays': True  # Default state for the toggle
+            'include_holidays': True
         }
+    if 'accrual_rates' not in session:
+        session['accrual_rates'] = [{'years': 0, 'hours': 8}]  # Default accrual rates if none are provided.
+
+# Apply accrual rates based on years of service
+def get_accrual_rate(years_of_service):
+    accrual_rates = session.get('accrual_rates', [])
+    accrual_rate = 8  # Default accrual rate
+    for rate in accrual_rates:
+        if years_of_service >= rate['years']:
+            accrual_rate = rate['hours']
+    return accrual_rate
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -47,7 +58,7 @@ def home():
         current_pto_str = request.form.get('current_pto')
         current_pp_start_str = request.form.get('current_pp_start')
         future_date_str = request.form.get('future_date')
-        include_holidays = request.form.get('include_holidays') == 'on'  # Read the toggle value
+        include_holidays = request.form.get('include_holidays') == 'on'
 
         # Store inputs in session
         session['user_inputs']['start_date'] = start_date_str
@@ -58,10 +69,13 @@ def home():
         session.modified = True
 
         # Parse dates
-        start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
-        future_date = datetime.strptime(future_date_str, "%Y-%m-%d")
-        current_pp_start = datetime.strptime(current_pp_start_str, "%Y-%m-%d")
-        current_pto = float(current_pto_str)
+        try:
+            start_date = datetime.strptime(start_date_str, "%Y-%m-%d")
+            future_date = datetime.strptime(future_date_str, "%Y-%m-%d")
+            current_pp_start = datetime.strptime(current_pp_start_str, "%Y-%m-%d")
+            current_pto = float(current_pto_str)
+        except ValueError:
+            return render_template("index.html", error_message="Invalid date or PTO input.", user_inputs=user_inputs)
 
         pto_detail = []
         total_pto_hours = current_pto
@@ -71,10 +85,7 @@ def home():
         period_start = current_pp_start
         while period_start <= future_date:
             period_end = period_start + timedelta(days=13)
-            pay_periods.append({
-                'start': period_start,
-                'end': period_end
-            })
+            pay_periods.append({'start': period_start, 'end': period_end})
             period_start += timedelta(days=14)
 
         vacation_hours_deducted = set()
@@ -91,14 +102,13 @@ def home():
                 vacation_key = f"{vacation['start']} to {vacation['end']}"
                 vacation_start = datetime.strptime(vacation['start'], "%Y-%m-%d")
                 vacation_end = datetime.strptime(vacation['end'], "%Y-%m-%d")
-                
                 if vacation_key not in vacation_hours_deducted and period['start'] <= vacation_end and period['end'] >= vacation_start:
                     period_vacation_hours += float(vacation['hours'])
                     vacation_dates.append(f"{vacation['start']} to {vacation['end']}")
-                    vacation_hours_deducted.add(vacation_key)  # Mark as deducted
-            
+                    vacation_hours_deducted.add(vacation_key)
+
             # Check for holidays
-            if include_holidays:  # Only deduct holidays if the toggle is ON
+            if include_holidays:
                 for holiday in holidays:
                     holiday_date = datetime.strptime(holiday['date'], "%Y-%m-%d")
                     if period['start'] <= holiday_date <= period['end']:
@@ -114,12 +124,13 @@ def home():
                 'holiday_dates': holiday_dates
             })
 
-        # Recalculate PTO using correct Accrual Rate
+        # Recalculate PTO using the correct accrual rate based on tenure
         for period in pay_periods_with_time_off:
             period_tenure_days = (period['end'] - start_date).days
             period_tenure_years = max(0, period_tenure_days / 365.25)
 
-            accrual_rate = 8  # Replace this with dynamic accrual logic if needed
+            # Get dynamic accrual rate based on service years
+            accrual_rate = get_accrual_rate(period_tenure_years)
             hours_accrued = accrual_rate
 
             total_pto_hours += hours_accrued
@@ -134,7 +145,7 @@ def home():
                 "vacation_hours": round(period['vacation_hours'], 2),
                 "holiday_hours": round(period['holiday_hours'], 2),
                 "total_pto_hours": round(total_pto_hours, 2),
-                "total_pto_days": round(total_pto_hours / 8, 2),  # Assuming 8 hours per day
+                "total_pto_days": round(total_pto_hours / 8, 2),
                 "vacation_dates": ", ".join(period['vacation_dates']),
                 "holiday_dates": ", ".join(period['holiday_dates'])
             })

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Manage PTO Accrual Rates</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Manage PTO Accrual Rates</h1>
+        <form method="POST" action="{{ url_for('accruals_view') }}">
+            <table class="table table-bordered" id="accrualTable">
+                <thead>
+                    <tr>
+                        <th>Length of Service (Years)</th>
+                        <th>Accrual Rate (Hours per Pay Period)</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rate in accrual_rates %}
+                    <tr>
+                        <td>
+                            <input type="number" name="years[]" class="form-control" value="{{ rate.years }}" required>
+                        </td>
+                        <td>
+                            <input type="number" name="hours[]" class="form-control" value="{{ rate.hours }}" step="0.01" required>
+                        </td>
+                        <td>
+                            <button type="button" class="btn btn-danger" onclick="removeRow(this)">Remove</button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="button" class="btn btn-primary" onclick="addAccrualRow()">Add Accrual Rate</button>
+            <button type="submit" class="btn btn-success">Save and Return</button>
+        </form>
+    </div>
+
+    <script>
+        function addAccrualRow() {
+            const table = document.getElementById('accrualTable').getElementsByTagName('tbody')[0];
+            const newRow = document.createElement('tr');
+
+            newRow.innerHTML = `
+                <td><input type="number" name="years[]" class="form-control" required></td>
+                <td><input type="number" name="hours[]" class="form-control" step="0.01" required></td>
+                <td><button type="button" class="btn btn-danger" onclick="removeRow(this)">Remove</button></td>
+            `;
+
+            table.appendChild(newRow);
+        }
+
+        function removeRow(button) {
+            const row = button.closest('tr');
+            row.remove();
+        }
+    </script>
+</body>
+</html>

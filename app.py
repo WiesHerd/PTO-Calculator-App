@@ -10,13 +10,14 @@ app.secret_key = 'your_secret_key_here'
 app.config['SESSION_TYPE'] = 'filesystem'
 app.config['SESSION_PERMANENT'] = False
 app.config['SESSION_FILE_DIR'] = os.path.join(app.root_path, 'flask_session')
+app.config['SESSION_COOKIE_NAME'] = 'my_session'  # Added this line
 Session(app)
 
 os.makedirs(app.config['SESSION_FILE_DIR'], exist_ok=True)
 
 # Initialize session data for holidays, vacations, and user inputs
-@app.before_request
-def before_request():
+@app.before_first_request  # Switched to before_first_request to initialize session early
+def initialize_session():
     if 'holidays' not in session:
         session['holidays'] = []
     if 'vacations' not in session:

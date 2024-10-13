@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PTO Forecaster Tool</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        /* Your existing styles here */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-center mb-4">PTO Forecaster Tool</h1>
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link active" href="#">Home</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">Vacation and Holiday Input</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="#">PTO Accrual Rates</a>
+            </li>
+        </ul>
+
+        <!-- Summary Section -->
+        <div class="summary card mb-4">
+            <div class="card-body">
+                <h3>Summary of Entered Data</h3>
+                <ul>
+                    <li><strong>Statutory Holidays:</strong> <span id="holidayCount">0</span> (Total Hours: <span id="totalHolidayHours">0</span>)</li>
+                    <li><strong>Vacations:</strong> <span id="vacationCount">0</span> (Total Hours: <span id="totalVacationHours">0</span>)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Form Section -->
+        <div class="form-section card mb-4">
+            <div class="card-body">
+                <form id="ptoForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="start_date" class="form-label">Start Date of Employment</label>
+                            <input type="date" class="form-control" id="start_date" name="start_date" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="current_pto" class="form-label">Current PTO Balance (Hours)</label>
+                            <input type="number" step="0.01" class="form-control" id="current_pto" name="current_pto" required>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label for="current_pp_start" class="form-label">Current Pay Period Start Date</label>
+                            <input type="date" class="form-control" id="current_pp_start" name="current_pp_start" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="future_date" class="form-label">Target Future Date</label>
+                            <input type="date" class="form-control" id="future_date" name="future_date" required>
+                        </div>
+                    </div>
+                    <div class="d-flex mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="include_holidays" name="include_holidays" checked>
+                            <label class="form-check-label" for="include_holidays">Include Statutory Holidays in PTO</label>
+                        </div>
+                        <button type="submit" class="btn btn-success">Calculate PTO Forecast</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Forecasted PTO Balance Section -->
+        <div id="forecastSection" class="forecast-section card mb-4" style="display: none;">
+            <div class="card-body">
+                <h3>Forecasted PTO Balance as of <span id="futureDateDisplay"></span>: <strong><span id="forecastedPto"></span> hours</strong></h3>
+                
+                <!-- Add export buttons -->
+                <div class="mb-3">
+                    <button class="btn btn-primary" onclick="window.print()">Print Report</button>
+                    <button class="btn btn-secondary" onclick="exportToCSV()">Export to CSV</button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table class="table table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Pay Period Start</th>
+                                <th>Pay Period End</th>
+                                <th>Length of Service (Years)</th>
+                                <th>Accrual Rate (Hours)</th>
+                                <th>Vacation Hours</th>
+                                <th>Holiday Hours</th>
+                                <th>Total PTO Hours</th>
+                                <th>Total PTO Days</th>
+                                <th>Vacation Dates</th>
+                                <th>Holiday Dates</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ptoTableBody">
+                            <!-- PTO details will be inserted here -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Chart Section -->
+                <div class="chart-container">
+                    <canvas id="ptoChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS and Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <script>
+        // Sample data (you can modify this as needed)
+        const sampleHolidays = [
+            { date: '2023-12-25', hours: 8, name: 'Christmas Day' },
+            { date: '2024-01-01', hours: 8, name: 'New Year\'s Day' }
+        ];
+        const sampleVacations = [
+            { start: '2023-07-01', end: '2023-07-05', hours: 32 }
+        ];
+        const sampleAccrualRates = [
+            { years: 0, hours: 6 },
+            { years: 5, hours: 8 },
+            { years: 10, hours: 10 }
+        ];
+
+        // Update summary
+        document.getElementById('holidayCount').textContent = sampleHolidays.length;
+        document.getElementById('totalHolidayHours').textContent = sampleHolidays.reduce((sum, h) => sum + h.hours, 0);
+        document.getElementById('vacationCount').textContent = sampleVacations.length;
+        document.getElementById('totalVacationHours').textContent = sampleVacations.reduce((sum, v) => sum + v.hours, 0);
+
+        // Form submission handler
+        document.getElementById('ptoForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            calculatePTO();
+        });
+
+        function calculatePTO() {
+            // Get form inputs
+            const startDate = new Date(document.getElementById('start_date').value);
+            const currentPTO = parseFloat(document.getElementById('current_pto').value);
+            const currentPPStart = new Date(document.getElementById('current_pp_start').value);
+            const futureDate = new Date(document.getElementById('future_date').value);
+            const includeHolidays = document.getElementById('include_holidays').checked;
+
+            // Perform PTO calculation (simplified version)
+            let totalPTO = currentPTO;
+            const ptoDetail = [];
+            let currentDate = new Date(currentPPStart);
+
+            while (currentDate <= futureDate) {
+                const periodEnd = new Date(currentDate);
+                periodEnd.setDate(periodEnd.getDate() + 13);
+
+                const lengthOfService = (currentDate - startDate) / (1000 * 60 * 60 * 24 * 365.25);
+                const accrualRate = getAccrualRate(lengthOfService);
+
+                totalPTO += accrualRate;
+
+                const vacationHours = getVacationHours(currentDate, periodEnd);
+                const holidayHours = includeHolidays ? getHolidayHours(currentDate, periodEnd) : 0;
+
+                totalPTO -= (vacationHours + holidayHours);
+
+                ptoDetail.push({
+                    payPeriodStart: currentDate.toISOString().split('T')[0],
+                    payPeriodEnd: periodEnd.toISOString().split('T')[0],
+                    lengthOfService: lengthOfService.toFixed(2),
+                    accrualRate: accrualRate.toFixed(2),
+                    vacationHours: vacationHours.toFixed(2),
+                    holidayHours: holidayHours.toFixed(2),
+                    totalPTOHours: totalPTO.toFixed(2),
+                    totalPTODays: (totalPTO / 8).toFixed(2),
+                    vacationDates: getVacationDates(currentDate, periodEnd),
+                    holidayDates: getHolidayDates(currentDate, periodEnd)
+                });
+
+                currentDate.setDate(currentDate.getDate() + 14);
+            }
+
+            displayResults(ptoDetail, futureDate);
+        }
+
+        function getAccrualRate(years) {
+            for (let i = sampleAccrualRates.length - 1; i >= 0; i--) {
+                if (years >= sampleAccrualRates[i].years) {
+                    return sampleAccrualRates[i].hours;
+                }
+            }
+            return sampleAccrualRates[0].hours;
+        }
+
+        function getVacationHours(start, end) {
+            return sampleVacations.reduce((sum, vacation) => {
+                const vacationStart = new Date(vacation.start);
+                const vacationEnd = new Date(vacation.end);
+                if (vacationStart <= end && vacationEnd >= start) {
+                    return sum + vacation.hours;
+                }
+                return sum;
+            }, 0);
+        }
+
+        function getHolidayHours(start, end) {
+            return sampleHolidays.reduce((sum, holiday) => {
+                const holidayDate = new Date(holiday.date);
+                if (holidayDate >= start && holidayDate <= end) {
+                    return sum + holiday.hours;
+                }
+                return sum;
+            }, 0);
+        }
+
+        function getVacationDates(start, end) {
+            return sampleVacations
+                .filter(vacation => new Date(vacation.start) <= end && new Date(vacation.end) >= start)
+                .map(vacation => `${vacation.start} to ${vacation.end}`)
+                .join(', ');
+        }
+
+        function getHolidayDates(start, end) {
+            return sampleHolidays
+                .filter(holiday => {
+                    const holidayDate = new Date(holiday.date);
+                    return holidayDate >= start && holidayDate <= end;
+                })
+                .map(holiday => holiday.date)
+                .join(', ');
+        }
+
+        function displayResults(ptoDetail, futureDate) {
+            document.getElementById('forecastSection').style.display = 'block';
+            document.getElementById('futureDateDisplay').textContent = futureDate.toISOString().split('T')[0];
+            document.getElementById('forecastedPto').textContent = ptoDetail[ptoDetail.length - 1].totalPTOHours;
+
+            const tableBody = document.getElementById('ptoTableBody');
+            tableBody.innerHTML = '';
+            ptoDetail.forEach(period => {
+                const row = tableBody.insertRow();
+                Object.values(period).forEach(value => {
+                    const cell = row.insertCell();
+                    cell.textContent = value;
+                });
+            });
+
+            updateChart(ptoDetail);
+        }
+
+        function updateChart(ptoDetail) {
+            const ctx = document.getElementById('ptoChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ptoDetail.map(p => p.payPeriodEnd),
+                    datasets: [{
+                        label: 'Total PTO Hours',
+                        data: ptoDetail.map(p => parseFloat(p.totalPTOHours)),
+                        borderColor: 'rgba(75, 192, 192, 1)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                        fill: true,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: { title: { display: true, text: 'Pay Period End' } },
+                        y: { title: { display: true, text: 'PTO Hours' } }
+                    },
+                    plugins: {
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const periodIndex = context.dataIndex;
+                                    const period = ptoDetail[periodIndex];
+                                    return `PTO Hours: ${period.totalPTOHours} (Vacation: ${period.vacationHours} hrs, Holidays: ${period.holidayHours} hrs)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function exportToCSV() {
+            const rows = [
+                ['Pay Period Start', 'Pay Period End', 'Length of Service (Years)', 'Accrual Rate (Hours)', 'Vacation Hours', 'Holiday Hours', 'Total PTO Hours', 'Total PTO Days', 'Vacation Dates', 'Holiday Dates'],
+                ...Array.from(document.getElementById('ptoTableBody').rows).map(row => 
+                    Array.from(row.cells).map(cell => cell.textContent)
+                )
+            ];
+
+            let csvContent = "data:text/csv;charset=utf-8," 
+                + rows.map(e => e.join(",")).join("\n");
+
+            var encodedUri = encodeURI(csvContent);
+            var link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "pto_forecast.csv");
+            document.body.appendChild(link);
+            link.click();
+        }
+    </script>
+</body>
+</html>

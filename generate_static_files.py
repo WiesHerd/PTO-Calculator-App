@@ -1,7 +1,9 @@
-   from flask_frozen import Freezer
-   from app import app
+from flask_frozen import Freezer
+from app import app
 
-   freezer = Freezer(app)
+app.config['FREEZER_STATIC_FILES'] = ['static/js/app.js']
 
-   if __name__ == '__main__':
-       freezer.freeze()
+freezer = Freezer(app)
+
+if __name__ == '__main__':
+    freezer.freeze()

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PTO Forecaster Tool - Vacations and Holidays</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .nav-tabs .nav-link {
+            color: #0d6efd;
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            margin-right: 5px;
+        }
+        .nav-tabs .nav-link.active {
+            color: #495057;
+            background-color: #fff;
+            border-color: #dee2e6 #dee2e6 #fff;
+        }
+        .table {
+            border-collapse: separate;
+            border-spacing: 0;
+        }
+        .table th, .table td {
+            border: 1px solid #dee2e6;
+        }
+        .table thead th {
+            background-color: #f8f9fa;
+        }
+        .table tbody tr:nth-of-type(odd) {
+            background-color: rgba(0,0,0,.05);
+        }
+        .card {
+            margin-bottom: 20px;
+        }
+        .display-4 {
+            font-weight: bold;
+        }
+        .table th {
+            background-color: #f8f9fa;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1 class="text-center mb-4">PTO Forecaster Tool</h1>
+        <ul class="nav nav-tabs mb-4">
+            <li class="nav-item">
+                <a class="nav-link " href="/">Home</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link active" href="/vacations">Vacation and Holiday Input</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link " href="/accruals">PTO Accrual Rates</a>
+            </li>
+        </ul>
+        
+    <h1>Vacation and Holiday Input</h1>
+    <form method="POST" action="/vacations">
+        <h3>Statutory Holidays</h3>
+        <table class="table" id="holidayTable">
+            <thead>
+                <tr>
+                    <th>Date</th>
+                    <th>Hours</th>
+                    <th>Holiday</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-primary" onclick="addHolidayRow()">Add Holiday</button>
+
+        <h3 class="mt-4">Non-Statutory Vacations</h3>
+        <table class="table" id="vacationTable">
+            <thead>
+                <tr>
+                    <th>Start Date</th>
+                    <th>End Date</th>
+                    <th>Hours</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                
+            </tbody>
+        </table>
+        <button type="button" class="btn btn-primary" onclick="addVacationRow()">Add Vacation</button>
+
+        <div class="mt-4">
+            <button type="submit" class="btn btn-success">Save and Return</button>
+        </div>
+    </form>
+
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
+    
+<script>
+    function addHolidayRow() {
+        const table = document.getElementById('holidayTable').getElementsByTagName('tbody')[0];
+        const newRow = table.insertRow();
+        newRow.innerHTML = `
+            <td><input type="date" name="holidays[]" class="form-control" required></td>
+            <td><input type="number" name="holiday_hours[]" class="form-control" value="8" required></td>
+            <td>
+                <select name="holiday_names[]" class="form-control holiday-select">
+                    
+                    <option value="New Year&#39;s Day">New Year&#39;s Day</option>
+                    
+                    <option value="Independence Day">Independence Day</option>
+                    
+                    <option value="Thanksgiving">Thanksgiving</option>
+                    
+                    <option value="Christmas Day">Christmas Day</option>
+                    
+                    <option value="custom">Other (Custom)</option>
+                </select>
+                <input type="text" class="form-control custom-holiday-input" name="custom_holiday_names[]" placeholder="Enter custom holiday" style="display: none; margin-top: 5px;">
+            </td>
+            <td><button type="button" class="btn btn-danger" onclick="removeRow(this)">Remove</button></td>
+        `;
+        bindHolidaySelectEvents();
+    }
+
+    function addVacationRow() {
+        const table = document.getElementById('vacationTable').getElementsByTagName('tbody')[0];
+        const newRow = table.insertRow();
+        newRow.innerHTML = `
+            <td><input type="date" name="vacation_start[]" class="form-control" required></td>
+            <td><input type="date" name="vacation_end[]" class="form-control" required></td>
+            <td><input type="number" name="vacation_hours[]" class="form-control" required></td>
+            <td><button type="button" class="btn btn-danger" onclick="removeRow(this)">Remove</button></td>
+        `;
+    }
+
+    function removeRow(button) {
+        const row = button.closest('tr');
+        row.parentNode.removeChild(row);
+    }
+
+    function bindHolidaySelectEvents() {
+        document.querySelectorAll('.holiday-select').forEach(select => {
+            select.addEventListener('change', function() {
+                const customInput = this.nextElementSibling;
+                customInput.style.display = this.value === 'custom' ? 'block' : 'none';
+            });
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', bindHolidaySelectEvents);
+</script>
+
+</body>
+</html>

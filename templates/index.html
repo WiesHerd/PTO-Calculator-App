@@ -1,227 +1,106 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PTO Forecaster Tool</title>
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <style>
-        /* Custom styles */
-        body {
-            background-color: #f8f9fa;
-        }
-        .container {
-            margin-top: 30px;
-        }
-        .summary, .forecast-section {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 5px;
-        }
-        .chart-container {
-            margin-top: 20px;
-        }
-        .d-flex {
-            display: flex;
-            justify-content: space-between;
-        }
-        .form-check {
-            margin-right: 15px;
-        }
-
-        /* Styling for tabs */
-        .nav-tabs .nav-link.active, .nav-tabs .nav-link {
-            background-color: white;
-            color: #0d6efd;
-            border-color: #dee2e6;
-        }
-
-        .nav-tabs .nav-link.active {
-            background-color: #fff;
-            border-color: #dee2e6 #dee2e6 #fff;
-        }
-
-        .nav-tabs .nav-link:hover {
-            color: #0d6efd;
-        }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h1 class="text-center mb-4">PTO Forecaster Tool</h1>
-        <ul class="nav nav-tabs mb-4">
-            <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'home' %}active{% endif %}" href="{{ url_for('home') }}">Home</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'vacations_view' %}active{% endif %}" href="{{ url_for('vacations_view') }}">Vacation and Holiday Input</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link {% if request.endpoint == 'accruals_view' %}active{% endif %}" href="{{ url_for('accruals_view') }}">PTO Accrual Rates</a>
-            </li>
-        </ul>
-
-        <!-- Summary Section -->
-        <div class="summary card mb-4">
-            <div class="card-body">
-                <h3>Summary of Entered Data</h3>
-                <ul>
-                    <li><strong>Statutory Holidays:</strong> {{ holidays|length }} (Total Hours: {{ total_holiday_hours }})</li>
-                    <li><strong>Vacations:</strong> {{ vacations|length }} (Total Hours: {{ total_vacation_hours }})</li>
-                </ul>
-            </div>
+{% extends "layout.html" %}
+{% block title %}Home{% endblock %}
+{% block head %}
+<style>
+    .card {
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    }
+    .display-4 {
+        font-weight: bold;
+    }
+    .table th {
+        background-color: #f8f9fa;
+    }
+</style>
+{% endblock %}
+{% block content %}
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2>Summary of Entered Data</h2>
+            <ul>
+                <li>Statutory Holidays: {{ holidays|length }} (Total Hours: {{ total_holiday_hours }})</li>
+                <li>Vacations: {{ vacations|length }} (Total Hours: {{ total_vacation_hours }})</li>
+            </ul>
         </div>
-
-        <!-- Form Section -->
-        <div class="form-section card mb-4">
-            <div class="card-body">
-                <form method="POST" action="{{ url_for('home') }}">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="start_date" class="form-label">Start Date of Employment</label>
-                            <input type="date" class="form-control" id="start_date" name="start_date" value="{{ user_inputs.start_date }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="current_pto" class="form-label">Current PTO Balance (Hours)</label>
-                            <input type="number" step="0.01" class="form-control" id="current_pto" name="current_pto" value="{{ user_inputs.current_pto }}" required>
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <label for="current_pp_start" class="form-label">Current Pay Period Start Date</label>
-                            <input type="date" class="form-control" id="current_pp_start" name="current_pp_start" value="{{ user_inputs.current_pp_start }}" required>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="future_date" class="form-label">Target Future Date</label>
-                            <input type="date" class="form-control" id="future_date" name="future_date" value="{{ user_inputs.future_date }}" required>
-                        </div>
-                    </div>
-                    <div class="d-flex mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="include_holidays" name="include_holidays" {% if user_inputs.include_holidays %}checked{% endif %}>
-                            <label class="form-check-label" for="include_holidays">Include Statutory Holidays in PTO</label>
-                        </div>
-                        <button type="submit" class="btn btn-success">Calculate PTO Forecast</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        {% if forecasted_pto is not none %}
-        <!-- Forecasted PTO Balance Section -->
-        <div class="forecast-section card mb-4">
-            <div class="card-body">
-                <h3>Forecasted PTO Balance as of {{ future_date }}: <strong>{{ forecasted_pto }} hours</strong></h3>
-                <div class="table-responsive">
-                    <table class="table table-bordered">
-                        <thead>
-                            <tr>
-                                <th>Pay Period Start</th>
-                                <th>Pay Period End</th>
-                                <th>Length of Service (Years)</th>
-                                <th>Accrual Rate (Hours)</th>
-                                <th>Vacation Hours</th>
-                                <th>Holiday Hours</th>
-                                <th>Total PTO Hours</th>
-                                <th>Total PTO Days</th>
-                                <th>Vacation Dates</th>
-                                <th>Holiday Dates</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for period in pto_detail %}
-                            <tr>
-                                <td>{{ period.pay_period_start }}</td>
-                                <td>{{ period.pay_period_end }}</td>
-                                <td>{{ period.length_of_service }}</td>
-                                <td>{{ period.hours_accrued }}</td>
-                                <td>{{ period.vacation_hours }}</td>
-                                <td>{{ period.holiday_hours }}</td>
-                                <td>{{ period.total_pto_hours }}</td>
-                                <td>{{ period.total_pto_days }}</td>
-                                <td>{{ period.vacation_dates }}</td>
-                                <td>{{ period.holiday_dates }}</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
-
-                <!-- Chart Section -->
-                <div class="chart-container">
-                    <canvas id="ptoChart"></canvas>
-                </div>
-            </div>
-        </div>
-        {% endif %}
     </div>
 
-    <!-- Bootstrap 5 JS and Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <form method="POST" action="{{ url_for('home') }}">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="start_date" class="form-label">Start Date of Employment</label>
+                <input type="date" class="form-control" id="start_date" name="start_date" value="{{ user_inputs.start_date }}" required>
+            </div>
+            <div class="col-md-6">
+                <label for="current_pto" class="form-label">Current PTO Balance (Hours)</label>
+                <input type="number" class="form-control" id="current_pto" name="current_pto" value="{{ user_inputs.current_pto }}" required>
+            </div>
+        </div>
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="current_pp_start" class="form-label">Current Pay Period Start Date</label>
+                <input type="date" class="form-control" id="current_pp_start" name="current_pp_start" value="{{ user_inputs.current_pp_start }}" required>
+            </div>
+            <div class="col-md-6">
+                <label for="future_date" class="form-label">Target Future Date</label>
+                <input type="date" class="form-control" id="future_date" name="future_date" value="{{ user_inputs.future_date }}" required>
+            </div>
+        </div>
+        <div class="mb-3 form-check">
+            <input type="checkbox" class="form-check-input" id="include_holidays" name="include_holidays" {% if user_inputs.include_holidays %}checked{% endif %}>
+            <label class="form-check-label" for="include_holidays">Include Statutory Holidays in PTO</label>
+        </div>
+        <button type="submit" class="btn btn-primary">Calculate PTO Forecast</button>
+    </form>
 
-    <script>
-        // PTO Chart using Chart.js
-        const ctx = document.getElementById('ptoChart').getContext('2d');
+    {% if forecasted_pto is not none %}
+    <div class="mt-5">
+        <div class="card bg-light">
+            <div class="card-body">
+                <h2 class="card-title text-center mb-4">PTO Forecast Results</h2>
+                <div class="row align-items-center">
+                    <div class="col-md-6 text-center">
+                        <h3>Forecasted PTO Balance</h3>
+                        <p class="display-4 text-primary">{{ forecasted_pto }} hours</p>
+                    </div>
+                    <div class="col-md-6 text-center">
+                        <h3>As of Date</h3>
+                        <p class="display-4 text-secondary">{{ user_inputs.future_date }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 
-        const vacationHours = [
-            {% if pto_detail|length > 0 %}
-                {{ pto_detail|map(attribute='vacation_hours')|join(', ') }}
-            {% else %}
-                []
-            {% endif %}
-        ];
-
-        const holidayHours = [
-            {% if pto_detail|length > 0 %}
-                {{ pto_detail|map(attribute='holiday_hours')|join(', ') }}
-            {% else %}
-                []
-            {% endif %}
-        ];
-
-        const ptoChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [{% for period in pto_detail %}'{{ period.pay_period_end }}',{% endfor %}],
-                datasets: [{
-                    label: 'Total PTO Hours',
-                    data: [{% for period in pto_detail %}{{ period.total_pto_hours }},{% endfor %}],
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                    fill: true,
-                    tension: 0.1
-                }]
-            },
-            options: {
-                scales: {
-                    x: {
-                        title: {
-                            display: true,
-                            text: 'Pay Period End'
-                        }
-                    },
-                    y: {
-                        title: {
-                            display: true,
-                            text: 'PTO Hours'
-                        }
-                    }
-                },
-                plugins: {
-                    tooltip: {
-                        callbacks: {
-                            label: function(tooltipItem) {
-                                const periodIndex = tooltipItem.dataIndex;
-                                const ptoHours = tooltipItem.raw;
-                                return `PTO Hours: ${ptoHours} (Vacation: ${vacationHours[periodIndex]} hrs, Holidays: ${holidayHours[periodIndex]} hrs)`;
-                            }
-                        }
-                    }
-                }
-            }
-        });
-    </script>
-</body>
-</html>
+    <div class="mt-5">
+        <h3>PTO Accrual Details</h3>
+        <div class="table-responsive">
+            <table class="table table-striped table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th>Pay Period</th>
+                        <th>Length of Service</th>
+                        <th>Hours Accrued</th>
+                        <th>Vacation Hours</th>
+                        <th>Holiday Hours</th>
+                        <th>Total PTO Hours</th>
+                        <th>Total PTO Days</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for detail in pto_detail %}
+                    <tr>
+                        <td>{{ detail.pay_period_start }} to {{ detail.pay_period_end }}</td>
+                        <td>{{ detail.length_of_service }} years</td>
+                        <td>{{ detail.hours_accrued }}</td>
+                        <td>{{ detail.vacation_hours }}</td>
+                        <td>{{ detail.holiday_hours }}</td>
+                        <td>{{ detail.total_pto_hours }}</td>
+                        <td>{{ detail.total_pto_days }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+{% endblock %}

@@ -178,85 +178,71 @@ def home():
             total_vacation_hours=total_vacation_hours
         )
 
-@app.route("/accruals", methods=["GET", "POST"])
-def accruals_view():
-    if request.method == "POST":
-        try:
-            # Capture the accrual rates from the form
-            years_list = request.form.getlist("years[]")
-            hours_list = request.form.getlist("hours[]")
-            accrual_rates = []
-            for years, hours in zip(years_list, hours_list):
-                years = years.strip()
-                hours = hours.strip()
-                if years and hours:
-                    accrual_rates.append({
-                        "years": int(years),
-                        "hours": float(hours)
-                    })
-            # Sort the accrual rates by years
-            accrual_rates = sorted(accrual_rates, key=lambda x: x['years'])
-            session['accrual_rates'] = accrual_rates
-            session.modified = True
-        except Exception as e:
-            print(f"Error in accrual rates submission: {e}")
-
-        return redirect(url_for("home"))
-
-    return render_template(
-        "accruals.html",
-        accrual_rates=session.get('accrual_rates', [])
-    )
-
 @app.route("/vacations", methods=["GET", "POST"])
 def vacations_view():
+    holidays = session.get('holidays', [])
+    vacations = session.get('vacations', [])
+    holiday_list = session.get('holiday_list', ['New Year\'s Day', 'Memorial Day', 'Independence Day', 'Labor Day', 'Thanksgiving', 'Christmas'])
+    
     if request.method == "POST":
-        try:
-            # Capture the statutory holidays
-            holidays = []
-            holiday_dates = request.form.getlist("holidays[]")
-            holiday_hours = request.form.getlist("holiday_hours[]")
-            holiday_names = request.form.getlist("holiday_names[]")
-            for h_date, h_hours, h_name in zip(holiday_dates, holiday_hours, holiday_names):
-                h_date = h_date.strip()
-                h_hours = h_hours.strip()
-                if h_date:
-                    holidays.append({
-                        "date": h_date,
-                        "hours": h_hours if h_hours else '8.0',
-                        "name": h_name
-                    })
+        new_holidays = []
+        new_vacations = []
+        
+        # Process holidays
+        holiday_dates = request.form.getlist('holidays[]')
+        holiday_hours = request.form.getlist('holiday_hours[]')
+        holiday_names = request.form.getlist('holiday_names[]')
+        custom_holiday_names = request.form.getlist('custom_holiday_names[]')
+        
+        for i in range(len(holiday_dates)):
+            name = holiday_names[i] if holiday_names[i] != 'custom' else custom_holiday_names[i]
+            new_holidays.append({
+                'date': holiday_dates[i],
+                'hours': float(holiday_hours[i]),
+                'name': name
+            })
+        
+        # Process vacations
+        vacation_starts = request.form.getlist('vacation_start[]')
+        vacation_ends = request.form.getlist('vacation_end[]')
+        vacation_hours = request.form.getlist('vacation_hours[]')
+        
+        for i in range(len(vacation_starts)):
+            new_vacations.append({
+                'start': vacation_starts[i],
+                'end': vacation_ends[i],
+                'hours': float(vacation_hours[i])
+            })
+        
+        session['holidays'] = new_holidays
+        session['vacations'] = new_vacations
+        session.modified = True
+        
+        return redirect(url_for('home'))
 
-            # Capture the non-statutory vacation days
-            vacations = []
-            vacation_starts = request.form.getlist("vacation_start[]")
-            vacation_ends = request.form.getlist("vacation_end[]")
-            vacation_hours = request.form.getlist("vacation_hours[]")
-            for v_start, v_end, v_hours in zip(vacation_starts, vacation_ends, vacation_hours):
-                v_start = v_start.strip()
-                v_end = v_end.strip()
-                v_hours = v_hours.strip()
-                if v_start and v_end:
-                    vacations.append({
-                        "start": v_start,
-                        "end": v_end,
-                        "hours": v_hours if v_hours else '0'
-                    })
+    return render_template('vacations.html', holidays=holidays, vacations=vacations, holiday_list=holiday_list)
 
-            session['holidays'] = holidays
-            session['vacations'] = vacations
-            session.modified = True
-        except Exception as e:
-            print(f"Error in form submission: {e}")
+@app.route("/accruals", methods=["GET", "POST"])
+def accruals_view():
+    accrual_rates = session.get('accrual_rates', [])
+    
+    if request.method == "POST":
+        new_accrual_rates = []
+        years = request.form.getlist('years[]')
+        hours = request.form.getlist('hours[]')
+        
+        for i in range(len(years)):
+            new_accrual_rates.append({
+                'years': int(years[i]),
+                'hours': float(hours[i])
+            })
+        
+        session['accrual_rates'] = new_accrual_rates
+        session.modified = True
+        
+        return redirect(url_for('home'))
 
-        return redirect(url_for("home"))
-
-    return render_template(
-        "vacations.html",
-        holidays=session.get('holidays', []),
-        vacations=session.get('vacations', []),
-        holiday_list=session['holiday_list']
-    )
+    return render_template('accruals.html', accrual_rates=accrual_rates)
 
 if __name__ == "__main__":
     app.run(debug=True)
